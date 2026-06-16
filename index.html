@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Xavier">
+<meta name="theme-color" content="#4A90D9">
+<title>Xavier's Day</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root{
+    --blue:#4A90D9;--green:#5BA85B;--yellow:#E8A838;--purple:#9B59B6;
+    --red:#E74C3C;--teal:#1ABC9C;--orange:#E67E22;
+    --dark:#1a1a2e;--bg:#f4f5f9;--card:#fff;--border:#ebebeb;--muted:#a0a0a8;
+    --safe-top:env(safe-area-inset-top,0px);--safe-bot:env(safe-area-inset-bottom,0px);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html{height:100dvh;overflow:hidden;}
+  body{height:100dvh;overflow:hidden;background:var(--bg);font-family:-apple-system,'Noto Sans TC',sans-serif;}
+  #app{display:flex;flex-direction:column;height:100dvh;width:100%;max-width:680px;margin:0 auto;overflow:hidden;}
+  #header{background:var(--card);border-bottom:2px solid var(--border);padding:calc(var(--safe-top) + 14px) 20px 0;flex-shrink:0;}
+  #header-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+  #clock{font-size:46px;font-weight:900;color:var(--dark);font-variant-numeric:tabular-nums;letter-spacing:1px;line-height:1;}
+  #date-label{font-size:13px;color:var(--muted);font-weight:600;margin-top:2px;}
+  #app-name{font-size:22px;font-weight:900;color:var(--dark);}
+  #login-btn{padding:8px 16px;font-size:13px;font-weight:800;border-radius:10px;border:2px solid var(--border);background:#fff;color:#666;cursor:pointer;font-family:inherit;}
+  #login-btn.logged-in{border-color:var(--green);color:var(--green);}
+  #tabs{display:flex;}
+  .tab{flex:1;padding:11px 4px;border:none;background:none;font-size:14px;font-weight:500;color:var(--muted);border-bottom:3px solid transparent;cursor:pointer;font-family:inherit;}
+  .tab.active{font-weight:800;color:var(--blue);border-bottom-color:var(--blue);}
+  #content{flex:1;overflow-y:auto;padding:18px 16px calc(var(--safe-bot) + 20px);}
+  .card{background:var(--card);border-radius:18px;padding:16px;margin-bottom:14px;}
+  .card-label{font-size:11px;font-weight:800;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;}
+  .prog-bar-bg{background:#eee;border-radius:99px;height:12px;}
+  .prog-bar-fill{height:12px;border-radius:99px;transition:width .4s;}
+  .block-card{border-radius:18px;margin-bottom:14px;overflow:hidden;border:2px solid #eee;}
+  .block-header{padding:14px 18px;display:flex;align-items:center;gap:12px;}
+  .block-emoji{font-size:30px;}
+  .block-title{font-size:20px;font-weight:900;color:#fff;}
+  .block-time{font-size:13px;color:rgba(255,255,255,0.8);margin-top:2px;}
+  .block-count{font-size:16px;font-weight:800;color:rgba(255,255,255,0.9);margin-left:auto;}
+  .block-steps{padding:10px 14px 6px;}
+  .step-btn{display:flex;align-items:center;gap:12px;border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;width:100%;text-align:left;border:2px solid #e8e8e8;background:#fafafa;font-family:inherit;transition:all .15s;}
+  .step-btn.done{background:#eafaf1;border-color:var(--green);}
+  .step-check{width:26px;height:26px;border-radius:7px;flex-shrink:0;border:2px solid #ccc;background:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;}
+  .step-btn.done .step-check{background:var(--green);border-color:var(--green);color:#fff;}
+  .step-label{font-size:17px;font-weight:600;color:#333;}
+  .step-btn.done .step-label{color:var(--green);text-decoration:line-through;}
+
+  /* Upload area */
+  .upload-area{padding:10px 14px 14px;border-top:1px solid #f0f0f0;}
+  .upload-label{font-size:11px;font-weight:800;color:var(--muted);letter-spacing:1.5px;margin-bottom:10px;}
+  .upload-btns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+  .upload-btn{display:flex;align-items:center;gap:6px;padding:10px 14px;border-radius:12px;border:2px solid var(--border);background:#fff;font-size:14px;font-weight:700;color:#555;cursor:pointer;font-family:inherit;}
+  .upload-btn:active{opacity:.7;}
+  .upload-note-area{width:100%;font-size:16px;border:2px solid var(--border);border-radius:12px;padding:10px 12px;outline:none;resize:none;color:var(--dark);font-family:inherit;margin-bottom:8px;}
+  .upload-note-area:focus{border-color:var(--blue);}
+  .save-note-btn{width:100%;padding:11px;font-size:15px;font-weight:800;border-radius:12px;border:none;cursor:pointer;font-family:inherit;}
+  .upload-status{font-size:13px;color:var(--muted);margin-top:6px;min-height:18px;}
+  .upload-preview{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+  .preview-thumb{width:64px;height:64px;border-radius:8px;object-fit:cover;border:2px solid var(--border);}
+
+  textarea,input[type=text],input[type=time],input[type=number]{font-family:inherit;font-size:16px;border:2px solid var(--border);border-radius:12px;padding:12px 14px;width:100%;outline:none;color:var(--dark);background:#fff;resize:none;}
+  textarea:focus,input:focus{border-color:var(--blue);}
+  .one-thing-input{font-size:20px;font-weight:700;border:none;padding:0;border-radius:0;}
+  .one-thing-input:focus{border:none;}
+  .btn{width:100%;padding:14px;font-size:17px;font-weight:800;border-radius:16px;border:none;cursor:pointer;font-family:inherit;transition:opacity .15s;}
+  .btn:active{opacity:.8;}
+  .btn-outline{background:#fff;border:2px solid currentColor;}
+  .btn-row{display:flex;gap:10px;}
+  .icon-btn{padding:8px 14px;font-size:13px;font-weight:800;border-radius:10px;border:2px solid var(--border);background:#fff;color:#666;cursor:pointer;font-family:inherit;}
+  #timer-display{font-size:72px;font-weight:900;color:var(--dark);font-variant-numeric:tabular-nums;letter-spacing:4px;}
+  #timer-phase{font-size:13px;font-weight:800;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;}
+  .timer-settings{display:flex;gap:12px;margin-top:16px;}
+  .timer-settings>div{flex:1;text-align:center;}
+  .timer-settings label{display:block;font-size:11px;font-weight:800;color:var(--muted);letter-spacing:1px;margin-bottom:6px;}
+  .timer-settings input{text-align:center;font-size:20px;font-weight:800;padding:10px;}
+  .ritual-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f5f5f5;}
+  .ritual-item:last-child{border-bottom:none;}
+  .ritual-num{width:28px;height:28px;border-radius:8px;background:#f0f4ff;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--blue);font-size:14px;flex-shrink:0;}
+  .ritual-text{font-size:17px;color:#333;flex:1;}
+  .rec-card{background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:13px 16px;margin-bottom:10px;}
+  .rec-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .rec-subject{font-size:14px;font-weight:700;}
+  .rec-date{font-size:12px;color:var(--muted);}
+  .rec-text{font-size:16px;color:#333;white-space:pre-wrap;line-height:1.5;}
+  .rec-media{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+  .rec-thumb{width:60px;height:60px;border-radius:8px;object-fit:cover;border:2px solid var(--border);}
+  .rec-audio{width:100%;margin-top:6px;}
+  .filter-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+  .filter-btn{padding:7px 14px;border-radius:99px;border:2px solid var(--border);background:#fff;font-size:13px;font-weight:700;color:#888;cursor:pointer;font-family:inherit;white-space:nowrap;}
+  .filter-btn.active{color:#fff;border-color:transparent;}
+  .edit-row{display:flex;align-items:center;gap:12px;background:var(--card);border-radius:14px;padding:12px 16px;margin-bottom:8px;cursor:pointer;border:2px solid var(--border);}
+  .edit-row:active{opacity:.7;}
+  .edit-emoji{font-size:24px;}
+  .edit-info{flex:1;}
+  .edit-name{font-size:16px;font-weight:700;color:var(--dark);}
+  .edit-sub{font-size:12px;color:var(--muted);margin-top:2px;}
+  .color-dot{width:16px;height:16px;border-radius:99px;flex-shrink:0;}
+  .chevron{color:#ccc;font-size:18px;}
+  .section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+  .section-title{font-size:17px;font-weight:800;color:var(--dark);}
+  .day-card{background:var(--card);border-radius:16px;padding:14px 16px;margin-bottom:10px;border:2px solid var(--border);}
+  .day-card.today{border-color:var(--blue);}
+  .day-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .day-name{font-size:16px;font-weight:800;color:var(--dark);}
+  .day-name.today-text{color:var(--blue);}
+  .block-chip{display:flex;align-items:center;gap:8px;border-radius:10px;padding:8px 12px;margin-bottom:6px;cursor:pointer;border:1.5px solid transparent;}
+  .block-chip-label{font-size:14px;font-weight:700;color:#333;}
+  .block-chip-time{font-size:12px;color:var(--muted);}
+  .no-blocks{font-size:13px;color:#ccc;text-align:center;padding:6px 0;}
+  #modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:none;align-items:flex-end;justify-content:center;}
+  #modal-overlay.open{display:flex;}
+  #modal-box{background:#fff;border-radius:24px 24px 0 0;width:100%;max-width:680px;max-height:88dvh;overflow-y:auto;padding:24px 20px calc(var(--safe-bot) + 32px);}
+  .modal-title{font-size:20px;font-weight:900;color:var(--dark);margin-bottom:20px;}
+  .modal-label{display:block;font-size:11px;font-weight:800;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:7px;}
+  .modal-field{margin-bottom:16px;}
+  .color-grid{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+  .color-swatch{width:34px;height:34px;border-radius:9px;cursor:pointer;border:3px solid transparent;}
+  .color-swatch.selected{border-color:var(--dark);}
+  .subject-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+  .subject-chip{padding:8px 14px;border-radius:12px;cursor:pointer;border:2px solid var(--border);background:#fff;font-size:13px;font-weight:700;color:#888;font-family:inherit;display:flex;align-items:center;gap:6px;}
+  .subject-chip.selected{color:#fff;border-color:transparent;}
+  .step-field{display:flex;gap:8px;margin-bottom:8px;}
+  .step-field input{flex:1;margin:0;}
+  .remove-step{padding:0 13px;border-radius:10px;border:2px solid #eee;background:#fff;color:var(--red);font-size:20px;cursor:pointer;line-height:1;}
+  .add-step-btn{font-size:14px;color:var(--blue);font-weight:700;border:none;background:none;cursor:pointer;padding:4px 0;margin-bottom:16px;font-family:inherit;}
+  .time-row{display:flex;gap:12px;}
+  .time-row>div{flex:1;}
+  #sync-bar{background:#fff;border-top:2px solid var(--border);padding:10px 16px calc(var(--safe-bot) + 10px);display:flex;align-items:center;gap:10px;flex-shrink:0;}
+  #sync-status{font-size:12px;color:var(--muted);font-weight:600;flex:1;}
+  .empty{text-align:center;padding:60px 20px;color:#ccc;}
+  .empty-icon{font-size:48px;margin-bottom:10px;}
+  .empty-title{font-size:18px;font-weight:700;margin-bottom:6px;color:#bbb;}
+  .empty-sub{font-size:14px;}
+  .pill{display:inline-block;border-radius:99px;padding:3px 10px;font-size:12px;font-weight:800;margin-left:8px;}
+  /* Recording indicator */
+  .rec-indicator{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--red);margin-right:6px;animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+  @media(min-width:600px){
+    #content{padding:22px 24px calc(var(--safe-bot) + 24px);}
+    #clock{font-size:52px;}
+    .block-title{font-size:22px;}
+    .step-label{font-size:18px;}
+    #timer-display{font-size:90px;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="header">
+    <div id="header-row">
+      <div><div id="app-name">Xavier's Day</div><div id="date-label">—</div></div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button id="login-btn" onclick="handleLoginBtn()">登入 Google</button>
+        <div id="clock">—:—</div>
+      </div>
+    </div>
+    <div id="tabs">
+      <button class="tab active" data-tab="today">今天</button>
+      <button class="tab" data-tab="timer">計時器</button>
+      <button class="tab" data-tab="records">歷程</button>
+      <button class="tab" data-tab="edit">編輯</button>
+    </div>
+  </div>
+  <div id="content"></div>
+  <div id="sync-bar">
+    <span id="sync-status">請先登入 Google 以啟用 Drive 備份</span>
+    <button class="icon-btn" id="btn-backup" onclick="driveBackup()">⬆ 備份</button>
+    <button class="icon-btn" id="btn-restore" onclick="driveRestore()">⬇ 載入</button>
+  </div>
+</div>
+<div id="modal-overlay"><div id="modal-box"></div></div>
+<!-- Hidden file inputs -->
+<input type="file" id="file-photo" accept="image/*" capture="environment" style="display:none">
+<input type="file" id="file-video" accept="video/*" capture="environment" style="display:none">
+<input type="file" id="file-photo-lib" accept="image/*" style="display:none">
+<input type="file" id="file-video-lib" accept="video/*" style="display:none">
+
+<script>
+// ═══ CONFIG ══════════════════════════════════════════════════════════════
+const CLIENT_ID = "207290352759-ccc9hp6l16edoe8ta24kiumv8m9ed6l6.apps.googleusercontent.com";
+const SCOPES = "https://www.googleapis.com/auth/drive.file";
+const DRIVE_FOLDER = "Xavier 學習歷程";
+const DRIVE_BACKUP = "xavier-day-backup.json";
+
+// ═══ CONSTANTS ═══════════════════════════════════════════════════════════
+const COLORS=["#4A90D9","#5BA85B","#E8A838","#9B59B6","#E74C3C","#2ECC71","#F39C12","#1ABC9C","#E67E22","#8E44AD","#C0392B","#27AE60","#16A085","#D35400"];
+const DAY_ZH=["週日","週一","週二","週三","週四","週五","週六"];
+
+const DEFAULT_SUBJECTS=[
+  {id:"math",    label:"數學",      emoji:"📐",color:"#4A90D9",steps:["看均一概念影片，聽懂「為什麼」","口頭說一遍給媽媽聽","做均一練習題"]},
+  {id:"sci",     label:"自然",      emoji:"🔬",color:"#5BA85B",steps:["看 AI LEAD 影片","用自己的話口頭解釋","找生活中的例子"]},
+  {id:"social",  label:"社會",      emoji:"🌏",color:"#E8A838",steps:["讀課文 / AI LEAD","找相關新聞討論","說出「為什麼會這樣」"]},
+  {id:"english", label:"英語",      emoji:"🌐",color:"#9B59B6",steps:["聽 15 分鐘英語","讀 Epic! 20 分鐘","用幾句英語說今天讀了什麼"]},
+  {id:"chinese", label:"國語文",    emoji:"📖",color:"#E74C3C",steps:["聽讀（有聲書或朗讀）","口頭說說這篇在講什麼","週計畫筆記（週日）"]},
+  {id:"piano",   label:"自主練琴",  emoji:"🎹",color:"#16A085",steps:["先用耳朵聽一遍目標樂段","右手單獨慢速彈 2 次","左手單獨慢速彈 2 次","雙手合起來慢速彈 1 次","拍一段影片或錄音存進歷程"]},
+  {id:"lesson",  label:"音樂家教課",emoji:"🎵",color:"#8E44AD",steps:["準備好要問老師的一個問題","上課！","課後說說今天學到最有趣的事"]},
+  {id:"robot",   label:"機器人",    emoji:"🤖",color:"#2ECC71",steps:["今天的組裝或程式任務","拍成果照存起來","說說今天學到什麼"]},
+  {id:"laser",   label:"雷射雕刻",  emoji:"✨",color:"#F39C12",steps:["設計或操作任務","拍照記錄成品","有什麼想改進的？"]},
+  {id:"ai",      label:"AI 課",     emoji:"🧠",color:"#1ABC9C",steps:["完成今天的 AI 練習","說說這個工具能做什麼","有什麼有趣的發現？"]},
+  {id:"football",label:"足球",      emoji:"⚽",color:"#E67E22",steps:["練習！","喝水休息","今天練了什麼"]},
+  {id:"gifted",  label:"資優班",    emoji:"🏫",color:"#8E44AD",steps:["專心上課","記下今天最有趣的一件事","拍照存進歷程"]},
+  {id:"comp",    label:"比賽準備",  emoji:"🏆",color:"#C0392B",steps:["今天的準備任務","進度怎麼樣？","下一步要做什麼？"]},
+  {id:"free",    label:"自由探索",  emoji:"🌿",color:"#27AE60",steps:["做任何你好奇的事","記一句話或拍一張照","這件事讓你想到什麼？"]},
+];
+const DEFAULT_SCHEDULE={
+  0:[{id:"s0a",subjectId:"chinese", label:"國語文",      startTime:"09:00",endTime:"10:30"},
+     {id:"s0b",subjectId:"piano",   label:"自主練琴",    startTime:"11:00",endTime:"11:30"}],
+  1:[{id:"s1a",subjectId:"math",    label:"數學深度日",  startTime:"09:00",endTime:"11:00"},
+     {id:"s1b",subjectId:"piano",   label:"自主練琴",    startTime:"16:00",endTime:"16:30"}],
+  2:[{id:"s2a",subjectId:"sci",     label:"自然深度日",  startTime:"09:00",endTime:"11:00"},
+     {id:"s2b",subjectId:"piano",   label:"自主練琴",    startTime:"16:00",endTime:"16:30"}],
+  3:[{id:"s3a",subjectId:"gifted",  label:"資優班",      startTime:"08:00",endTime:"16:00"},
+     {id:"s3b",subjectId:"piano",   label:"自主練琴",    startTime:"17:00",endTime:"17:30"}],
+  4:[{id:"s4a",subjectId:"social",  label:"社會深度日",  startTime:"09:00",endTime:"11:00"},
+     {id:"s4b",subjectId:"lesson",  label:"音樂家教課",  startTime:"20:00",endTime:"21:00"}],
+  5:[{id:"s5a",subjectId:"english", label:"英語日",      startTime:"09:00",endTime:"11:00"},
+     {id:"s5b",subjectId:"football",label:"足球練習",    startTime:"15:00",endTime:"17:00"},
+     {id:"s5c",subjectId:"piano",   label:"自主練琴",    startTime:"18:00",endTime:"18:30"}],
+  6:[{id:"s6a",subjectId:"gifted",  label:"資優班充實課",startTime:"08:00",endTime:"12:00"},
+     {id:"s6b",subjectId:"robot",   label:"機器人",      startTime:"13:00",endTime:"15:00"},
+     {id:"s6c",subjectId:"piano",   label:"自主練琴",    startTime:"16:00",endTime:"16:30"}],
+};
+const DEFAULT_RITUALS=["倒一杯水 🥤","坐定位、深呼吸 😮‍💨","打開均一或 AI LEAD 📱","按開始！▶"];
+
+// ═══ STATE ════════════════════════════════════════════════════════════════
+let G={
+  subjects:null,schedule:null,records:[],taskMap:{},oneThing:"",note:"",
+  activeTab:"today",filterSubject:"all",
+  timerSecs:50*60,timerRunning:false,timerPhase:"work",timerInterval:null,
+  workMins:50,breakMins:10,rituals:null,
+  // Google auth
+  accessToken:null,userEmail:"",
+  driveFolderId:null,
+  // recording
+  mediaRecorder:null,audioChunks:[],isRecording:false,
+  // pending uploads per block
+  pendingUploads:{}, // blockId -> [{type,dataUrl,name}]
+};
+
+function todayStr(){return new Date().toISOString().split("T")[0];}
+function uid(){return Math.random().toString(36).slice(2,8);}
+function lsGet(k,fb){try{const v=localStorage.getItem(k);return v!==null?JSON.parse(v):fb;}catch{return fb;}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
+const K={
+  subjects:"xv4_subjects",schedule:"xv4_schedule",records:"xv4_records",
+  rituals:"xv4_rituals",workMins:"xv4_workMins",breakMins:"xv4_breakMins",
+  token:"xv4_token",email:"xv4_email",folderId:"xv4_folderid",
+  oneThing:()=>`xv4_one_${todayStr()}`,note:()=>`xv4_note_${todayStr()}`,
+  tasks:(bid)=>`xv4_tasks_${todayStr()}_${bid}`,
+};
+
+function loadAll(){
+  G.subjects  =lsGet(K.subjects,DEFAULT_SUBJECTS);
+  G.schedule  =lsGet(K.schedule,DEFAULT_SCHEDULE);
+  G.records   =lsGet(K.records,[]);
+  G.rituals   =lsGet(K.rituals,DEFAULT_RITUALS);
+  G.workMins  =lsGet(K.workMins,50);
+  G.breakMins =lsGet(K.breakMins,10);
+  G.timerSecs =G.workMins*60;
+  G.oneThing  =lsGet(K.oneThing(),"");
+  G.note      =lsGet(K.note(),"");
+  G.accessToken=lsGet(K.token,null);
+  G.userEmail  =lsGet(K.email,"");
+  G.driveFolderId=lsGet(K.folderId,null);
+  const dow=new Date().getDay();
+  (G.schedule[dow]||[]).forEach(b=>{
+    const s=G.subjects.find(s=>s.id===b.subjectId);
+    if(s) G.taskMap[b.id]=lsGet(K.tasks(b.id),s.steps.map(()=>false));
+  });
+}
+
+// ═══ GOOGLE AUTH ═════════════════════════════════════════════════════════
+let tokenClient;
+function initGoogleAuth(){
+  if(typeof google==="undefined") return;
+  tokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:CLIENT_ID,
+    scope:SCOPES,
+    callback:(resp)=>{
+      if(resp.error) return;
+      G.accessToken=resp.access_token;
+      lsSet(K.token,G.accessToken);
+      fetchUserEmail();
+    },
+  });
+}
+async function fetchUserEmail(){
+  try{
+    const r=await fetch("https://www.googleapis.com/oauth2/v2/userinfo",{headers:{Authorization:`Bearer ${G.accessToken}`}});
+    const d=await r.json();
+    G.userEmail=d.email||"";
+    lsSet(K.email,G.userEmail);
+    updateLoginBtn();
+    setSyncStatus(`已登入 ${G.userEmail}`);
+  }catch{}
+}
+function handleLoginBtn(){
+  if(G.accessToken){
+    if(confirm("登出 Google 嗎？上傳功能將暫停。")){
+      G.accessToken=null;G.userEmail="";G.driveFolderId=null;
+      lsSet(K.token,null);lsSet(K.email,"");lsSet(K.folderId,null);
+      updateLoginBtn();setSyncStatus("請先登入 Google 以啟用 Drive 備份");
+    }
+  } else {
+    if(typeof google==="undefined"){alert("Google 登入模組尚未載入，請稍後再試");return;}
+    tokenClient.requestAccessToken();
+  }
+}
+function updateLoginBtn(){
+  const btn=document.getElementById("login-btn");
+  if(!btn) return;
+  if(G.accessToken){btn.textContent="✓ "+G.userEmail.split("@")[0];btn.className="logged-in";}
+  else{btn.textContent="登入 Google";btn.className="";}
+}
+
+// ═══ DRIVE HELPERS ═══════════════════════════════════════════════════════
+async function ensureFolder(){
+  if(G.driveFolderId) return G.driveFolderId;
+  // search
+  const q=encodeURIComponent(`name='${DRIVE_FOLDER}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`,{headers:{Authorization:`Bearer ${G.accessToken}`}});
+  const d=await r.json();
+  if(d.files&&d.files.length>0){G.driveFolderId=d.files[0].id;lsSet(K.folderId,G.driveFolderId);return G.driveFolderId;}
+  // create
+  const c=await fetch("https://www.googleapis.com/drive/v3/files",{
+    method:"POST",headers:{Authorization:`Bearer ${G.accessToken}`,"Content-Type":"application/json"},
+    body:JSON.stringify({name:DRIVE_FOLDER,mimeType:"application/vnd.google-apps.folder"})
+  });
+  const cd=await c.json();
+  G.driveFolderId=cd.id;lsSet(K.folderId,G.driveFolderId);return G.driveFolderId;
+}
+
+async function uploadToDrive(blob,filename,mimeType,subFolderName){
+  if(!G.accessToken) throw new Error("未登入");
+  const parentId=await ensureFolder();
+  // ensure date subfolder
+  let dateId;
+  const q=encodeURIComponent(`name='${subFolderName}' and '${parentId}' in parents and trashed=false`);
+  const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`,{headers:{Authorization:`Bearer ${G.accessToken}`}});
+  const rd=await r.json();
+  if(rd.files&&rd.files.length>0){dateId=rd.files[0].id;}
+  else{
+    const c=await fetch("https://www.googleapis.com/drive/v3/files",{
+      method:"POST",headers:{Authorization:`Bearer ${G.accessToken}`,"Content-Type":"application/json"},
+      body:JSON.stringify({name:subFolderName,mimeType:"application/vnd.google-apps.folder",parents:[parentId]})
+    });
+    dateId=(await c.json()).id;
+  }
+  // upload
+  const meta=JSON.stringify({name:filename,parents:[dateId]});
+  const form=new FormData();
+  form.append("metadata",new Blob([meta],{type:"application/json"}));
+  form.append("file",blob);
+  const up=await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink",{
+    method:"POST",headers:{Authorization:`Bearer ${G.accessToken}`},body:form
+  });
+  return await up.json();
+}
+
+// dataUrl -> blob
+function dataUrlToBlob(dataUrl){
+  const [header,data]=dataUrl.split(",");
+  const mime=header.match(/:(.*?);/)[1];
+  const bin=atob(data);
+  const arr=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+  return new Blob([arr],{type:mime});
+}
+
+// compress image
+async function compressImage(file,maxW=1200){
+  return new Promise(res=>{
+    const img=new Image();
+    const url=URL.createObjectURL(file);
+    img.onload=()=>{
+      const scale=Math.min(1,maxW/img.width);
+      const c=document.createElement("canvas");
+      c.width=img.width*scale;c.height=img.height*scale;
+      c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob(b=>res(b),"image/jpeg",0.82);
+    };
+    img.src=url;
+  });
+}
+
+// ═══ RENDER ══════════════════════════════════════════════════════════════
+function getSub(id){return G.subjects.find(s=>s.id===id);}
+function render(){
+  const c=document.getElementById("content");
+  if(G.activeTab==="today")   c.innerHTML=renderToday();
+  if(G.activeTab==="timer")   c.innerHTML=renderTimer();
+  if(G.activeTab==="records") c.innerHTML=renderRecords();
+  if(G.activeTab==="edit")    c.innerHTML=renderEdit();
+  attachListeners();
+  updateLoginBtn();
+}
+
+// ── TODAY ─────────────────────────────────────────────────────────────────
+function renderToday(){
+  const dow=new Date().getDay();
+  const blocks=(G.schedule[dow]||[]).slice().sort((a,b)=>a.startTime.localeCompare(b.startTime));
+  const total=blocks.reduce((a,b)=>{const s=getSub(b.subjectId);return a+(s?s.steps.length:0);},0);
+  const done=blocks.reduce((a,b)=>{const ts=G.taskMap[b.id]||[];return a+ts.filter(Boolean).length;},0);
+  const pct=total>0?Math.round(done/total*100):0;
+  let h="";
+  if(total>0) h+=`<div class="card"><div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted);font-weight:700;margin-bottom:8px"><span>今天進度</span><span>${done}/${total} ${pct}%</span></div><div class="prog-bar-bg"><div class="prog-bar-fill" style="width:${pct}%;background:${pct===100?'var(--green)':'var(--blue)'}"></div></div></div>`;
+  h+=`<div class="card"><div class="card-label">今天最重要的一件事</div><textarea class="one-thing-input" id="one-thing" rows="2" placeholder="一句話就好…">${escHtml(G.oneThing)}</textarea></div>`;
+  if(blocks.length===0) h+=`<div class="empty"><div class="empty-icon">🗓️</div><div class="empty-title">今天還沒有課表</div><div class="empty-sub">去「編輯」頁面新增今天的課程</div></div>`;
+  blocks.forEach(blk=>{
+    const subj=getSub(blk.subjectId);if(!subj)return;
+    const ts=G.taskMap[blk.id]||[];
+    const d=ts.filter(Boolean).length;
+    const pending=G.pendingUploads[blk.id]||[];
+    const previewHtml=pending.map(p=>{
+      if(p.type==="audio") return `<audio class="preview-audio" controls src="${p.dataUrl}" style="width:100%;margin-top:4px"></audio>`;
+      return `<img class="preview-thumb" src="${p.dataUrl}" alt="preview">`;
+    }).join("");
+    const isRec=G.isRecording&&G.recordingBlockId===blk.id;
+    h+=`<div class="block-card" style="border-color:${subj.color}33">
+      <div class="block-header" style="background:${subj.color}">
+        <span class="block-emoji">${subj.emoji}</span>
+        <div style="flex:1"><div class="block-title">${escHtml(blk.label||subj.label)}</div><div class="block-time">${blk.startTime} – ${blk.endTime}</div></div>
+        <div class="block-count">${d}/${subj.steps.length}</div>
+      </div>
+      <div class="block-steps">
+        ${subj.steps.map((step,i)=>`<button class="step-btn${ts[i]?' done':''}" data-action="toggle-step" data-block="${blk.id}" data-idx="${i}"><div class="step-check">${ts[i]?'✓':''}</div><span class="step-label">${escHtml(step)}</span></button>`).join("")}
+      </div>
+      <div class="upload-area">
+        <div class="upload-label">記錄成果 RECORD</div>
+        <div class="upload-btns">
+          <button class="upload-btn" data-action="take-photo" data-block="${blk.id}">📷 拍照</button>
+          <button class="upload-btn" data-action="pick-photo" data-block="${blk.id}">🖼 選圖</button>
+          <button class="upload-btn" data-action="take-video" data-block="${blk.id}">🎥 錄影</button>
+          <button class="upload-btn" data-action="${isRec?'stop-rec':'start-rec'}" data-block="${blk.id}" id="rec-btn-${blk.id}">
+            ${isRec?'<span class="rec-indicator"></span>停止':'🎙 錄音'}
+          </button>
+        </div>
+        <textarea class="upload-note-area" id="note-${blk.id}" rows="3" placeholder="打幾個字也可以…">${escHtml((G.blockNotes||{})[blk.id]||"")}</textarea>
+        ${previewHtml?`<div class="upload-preview">${previewHtml}</div>`:""}
+        <button class="save-note-btn" data-action="save-block-note" data-block="${blk.id}" style="background:${subj.color};color:#fff">
+          ${G.accessToken?"存進歷程 + 上傳 Drive ☁":"存進歷程（未登入 Drive）"}
+        </button>
+        <div class="upload-status" id="status-${blk.id}"></div>
+      </div>
+    </div>`;
+  });
+  return h;
+}
+
+// ── TIMER ─────────────────────────────────────────────────────────────────
+function renderTimer(){
+  const mm=String(Math.floor(G.timerSecs/60)).padStart(2,"0");
+  const ss=String(G.timerSecs%60).padStart(2,"0");
+  const total=G.timerPhase==="work"?G.workMins*60:G.breakMins*60;
+  const pct=((total-G.timerSecs)/total)*100;
+  const col=G.timerPhase==="work"?"var(--blue)":"var(--green)";
+  return `<div class="card" style="text-align:center;background:#f0f4ff">
+    <div id="timer-phase" style="color:${col}">${G.timerPhase==="work"?"專注中 FOCUS":"休息 BREAK"}</div>
+    <div id="timer-display">${mm}:${ss}</div>
+    <div class="prog-bar-bg" style="margin:14px 0"><div class="prog-bar-fill" style="width:${pct}%;background:${col}"></div></div>
+    <div class="btn-row" style="justify-content:center">
+      <button class="btn" id="timer-toggle" style="background:${col};color:#fff;flex:none;padding:12px 32px;width:auto">${G.timerRunning?"⏸ 暫停":"▶ 開始"}</button>
+      <button class="btn btn-outline" id="timer-reset" style="color:#888;border-color:#dde3f5;flex:none;padding:12px 20px;width:auto">↺</button>
+    </div>
+    <div class="timer-settings">
+      <div><label>專注（分鐘）</label><input type="number" id="work-mins" min="5" max="120" value="${G.workMins}"></div>
+      <div><label>休息（分鐘）</label><input type="number" id="break-mins" min="1" max="30" value="${G.breakMins}"></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="card-label" style="margin:0">啟動儀式</div>
+      <button class="icon-btn" data-action="edit-rituals">編輯</button>
+    </div>
+    ${G.rituals.map((r,i)=>`<div class="ritual-item"><div class="ritual-num">${i+1}</div><span class="ritual-text">${escHtml(r)}</span></div>`).join("")}
+  </div>`;
+}
+
+// ── RECORDS ───────────────────────────────────────────────────────────────
+function renderRecords(){
+  const filtered=G.filterSubject==="all"?G.records:G.records.filter(r=>r.subjectId===G.filterSubject);
+  const subjsIn=[...new Set(G.records.map(r=>r.subjectId))].map(id=>getSub(id)).filter(Boolean);
+  let h=`<div style="font-size:15px;font-weight:700;color:#555;margin-bottom:4px">學習足跡 Portfolio</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:14px">每天存一筆，三年後就是你的故事 📚</div>
+    <div class="filter-row">
+      <button class="filter-btn${G.filterSubject==='all'?' active':''}" data-action="filter" data-subj="all" style="${G.filterSubject==='all'?'background:var(--blue);border-color:var(--blue)':''}">📚 全部</button>
+      ${subjsIn.map(s=>`<button class="filter-btn${G.filterSubject===s.id?' active':''}" data-action="filter" data-subj="${s.id}" style="${G.filterSubject===s.id?`background:${s.color};border-color:${s.color}`:''}"> ${s.emoji} ${s.label}</button>`).join("")}
+    </div>`;
+  if(filtered.length===0){
+    h+=`<div class="empty"><div class="empty-icon">📝</div><div class="empty-title">還沒有紀錄</div><div class="empty-sub">去「今天」頁面儲存第一筆</div></div>`;
+  } else {
+    filtered.forEach(r=>{
+      const subj=getSub(r.subjectId);
+      const mediaHtml=(r.media||[]).map(m=>{
+        if(m.type==="audio") return `<audio class="rec-audio" controls src="${m.url||m.dataUrl}"></audio>`;
+        if(m.driveUrl) return `<a href="${m.driveUrl}" target="_blank"><img class="rec-thumb" src="${m.dataUrl||''}" alt="media" onerror="this.style.display='none'"></a>`;
+        return m.dataUrl?`<img class="rec-thumb" src="${m.dataUrl}" alt="media">`:"";
+      }).join("");
+      h+=`<div class="rec-card">
+        <div class="rec-top">
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-size:20px">${r.emoji||"📝"}</span><span class="rec-subject" style="color:${subj?.color||'#888'}">${r.subject}</span></div>
+          <span class="rec-date">${r.date}</span>
+        </div>
+        ${r.note?`<div class="rec-text">${escHtml(r.note)}</div>`:""}
+        ${mediaHtml?`<div class="rec-media">${mediaHtml}</div>`:""}
+      </div>`;
+    });
+  }
+  return h;
+}
+
+// ── EDIT ──────────────────────────────────────────────────────────────────
+function renderEdit(){
+  const dow=new Date().getDay();
+  return `<div style="margin-bottom:24px">
+    <div class="section-header"><div class="section-title">📚 科目管理</div><button class="icon-btn" data-action="new-subject">＋ 新增</button></div>
+    ${G.subjects.map(s=>`<div class="edit-row" data-action="edit-subject" data-id="${s.id}"><span class="edit-emoji">${s.emoji}</span><div class="edit-info"><div class="edit-name">${escHtml(s.label)}</div><div class="edit-sub">${s.steps.length} 個步驟</div></div><div class="color-dot" style="background:${s.color}"></div><span class="chevron">›</span></div>`).join("")}
+  </div>
+  <div>
+    <div class="section-title" style="margin-bottom:12px">📅 每週課表</div>
+    ${DAY_ZH.map((name,d)=>{
+      const blocks=(G.schedule[d]||[]).slice().sort((a,b)=>a.startTime.localeCompare(b.startTime));
+      const isToday=d===dow;
+      return `<div class="day-card${isToday?' today':''}">
+        <div class="day-header">
+          <div class="day-name${isToday?' today-text':''}">${name}${isToday?`<span class="pill" style="background:var(--blue)22;color:var(--blue)">今天</span>`:''}</div>
+          <button class="icon-btn" data-action="new-block" data-day="${d}">＋ 加課程</button>
+        </div>
+        ${blocks.map(blk=>{const subj=getSub(blk.subjectId);return subj?`<div class="block-chip" data-action="edit-block" data-day="${d}" data-bid="${blk.id}" style="background:${subj.color}12;border-color:${subj.color}33"><span style="font-size:18px">${subj.emoji}</span><div style="flex:1"><div class="block-chip-label">${escHtml(blk.label||subj.label)}</div><div class="block-chip-time">${blk.startTime} – ${blk.endTime}</div></div><span class="chevron">›</span></div>`:"";}).join("")}
+        ${blocks.length===0?'<div class="no-blocks">還沒有課程</div>':""}
+      </div>`;
+    }).join("")}
+  </div>`;
+}
+
+// ═══ LISTENERS ═══════════════════════════════════════════════════════════
+function attachListeners(){
+  document.querySelectorAll(".tab").forEach(btn=>{
+    btn.onclick=()=>{G.activeTab=btn.dataset.tab;document.querySelectorAll(".tab").forEach(b=>b.classList.remove("active"));btn.classList.add("active");render();};
+  });
+  const ot=document.getElementById("one-thing");
+  if(ot) ot.oninput=()=>{G.oneThing=ot.value;lsSet(K.oneThing(),G.oneThing);};
+  const tt=document.getElementById("timer-toggle");if(tt) tt.onclick=toggleTimer;
+  const tr=document.getElementById("timer-reset");if(tr) tr.onclick=resetTimer;
+  const wm=document.getElementById("work-mins");if(wm) wm.onchange=()=>{G.workMins=Math.max(5,+wm.value||50);lsSet(K.workMins,G.workMins);if(!G.timerRunning&&G.timerPhase==="work") G.timerSecs=G.workMins*60;render();};
+  const bm=document.getElementById("break-mins");if(bm) bm.onchange=()=>{G.breakMins=Math.max(1,+bm.value||10);lsSet(K.breakMins,G.breakMins);render();};
+
+  // Block note inputs
+  document.querySelectorAll(".upload-note-area").forEach(el=>{
+    el.oninput=()=>{
+      if(!G.blockNotes) G.blockNotes={};
+      G.blockNotes[el.id.replace("note-","")]=el.value;
+    };
+  });
+
+  document.querySelectorAll("[data-action]").forEach(el=>{
+    el.onclick=(e)=>{
+      const a=el.dataset.action;
+      if(a==="toggle-step") toggleStep(el.dataset.block,+el.dataset.idx);
+      if(a==="filter"){G.filterSubject=el.dataset.subj;render();}
+      if(a==="new-subject") openSubjectModal(null);
+      if(a==="edit-subject") openSubjectModal(el.dataset.id);
+      if(a==="new-block") openBlockModal(+el.dataset.day,null);
+      if(a==="edit-block") openBlockModal(+el.dataset.day,el.dataset.bid);
+      if(a==="edit-rituals") openRitualsModal();
+      if(a==="take-photo") triggerFileInput("file-photo",el.dataset.block,"image");
+      if(a==="pick-photo") triggerFileInput("file-photo-lib",el.dataset.block,"image");
+      if(a==="take-video") triggerFileInput("file-video",el.dataset.block,"video");
+      if(a==="start-rec") startRecording(el.dataset.block);
+      if(a==="stop-rec") stopRecording();
+      if(a==="save-block-note") saveBlockEntry(el.dataset.block);
+    };
+  });
+
+  // File inputs
+  ["file-photo","file-photo-lib"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.onchange=()=>{if(el.files[0]) handleImageFile(el.files[0],el.dataset.block);el.value="";};
+  });
+  ["file-video","file-video-lib"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.onchange=()=>{if(el.files[0]) handleVideoFile(el.files[0],el.dataset.block);el.value="";};
+  });
+
+  document.getElementById("btn-backup").onclick=driveBackup;
+  document.getElementById("btn-restore").onclick=driveRestore;
+}
+
+function triggerFileInput(inputId,blockId,type){
+  const el=document.getElementById(inputId);
+  el.dataset.block=blockId;
+  el.click();
+}
+
+// ═══ MEDIA HANDLERS ══════════════════════════════════════════════════════
+async function handleImageFile(file,blockId){
+  setStatus(blockId,"壓縮中…");
+  const compressed=await compressImage(file);
+  const reader=new FileReader();
+  reader.onload=()=>{
+    if(!G.pendingUploads[blockId]) G.pendingUploads[blockId]=[];
+    const ts=new Date().toTimeString().slice(0,5).replace(":","");
+    G.pendingUploads[blockId].push({type:"image",dataUrl:reader.result,name:`照片_${todayStr()}_${ts}.jpg`,blob:compressed});
+    setStatus(blockId,"照片已暫存，按「存進歷程」上傳");
+    render();
+  };
+  reader.readAsDataURL(compressed);
+}
+
+async function handleVideoFile(file,blockId){
+  setStatus(blockId,"影片處理中…");
+  const reader=new FileReader();
+  reader.onload=()=>{
+    if(!G.pendingUploads[blockId]) G.pendingUploads[blockId]=[];
+    const ts=new Date().toTimeString().slice(0,5).replace(":","");
+    G.pendingUploads[blockId].push({type:"video",dataUrl:reader.result,name:`影片_${todayStr()}_${ts}.mp4`,blob:file});
+    setStatus(blockId,"影片已暫存，按「存進歷程」上傳");
+    render();
+  };
+  reader.readAsDataURL(file);
+}
+
+async function startRecording(blockId){
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    G.audioChunks=[];
+    G.mediaRecorder=new MediaRecorder(stream);
+    G.isRecording=true;
+    G.recordingBlockId=blockId;
+    G.mediaRecorder.ondataavailable=e=>{if(e.data.size>0) G.audioChunks.push(e.data);};
+    G.mediaRecorder.onstop=()=>{
+      stream.getTracks().forEach(t=>t.stop());
+      const blob=new Blob(G.audioChunks,{type:"audio/mp4"});
+      const reader=new FileReader();
+      const ts=new Date().toTimeString().slice(0,5).replace(":","");
+      reader.onload=()=>{
+        if(!G.pendingUploads[blockId]) G.pendingUploads[blockId]=[];
+        G.pendingUploads[blockId].push({type:"audio",dataUrl:reader.result,name:`錄音_${todayStr()}_${ts}.m4a`,blob});
+        G.isRecording=false;G.recordingBlockId=null;
+        setStatus(blockId,"錄音完成，按「存進歷程」上傳");
+        render();
+      };
+      reader.readAsDataURL(blob);
+    };
+    G.mediaRecorder.start();
+    render(); // show stop button
+  }catch(e){setStatus(blockId,"無法使用麥克風："+e.message);}
+}
+
+function stopRecording(){
+  if(G.mediaRecorder&&G.mediaRecorder.state!=="inactive") G.mediaRecorder.stop();
+}
+
+// ═══ SAVE BLOCK ENTRY ════════════════════════════════════════════════════
+async function saveBlockEntry(blockId){
+  const dow=new Date().getDay();
+  const blk=(G.schedule[dow]||[]).find(b=>b.id===blockId);
+  const subj=blk?getSub(blk.subjectId):null;
+  const noteText=((G.blockNotes||{})[blockId]||"").trim();
+  const pending=G.pendingUploads[blockId]||[];
+
+  if(!noteText&&pending.length===0){setStatus(blockId,"請先輸入文字或新增媒體");return;}
+
+  setStatus(blockId,"儲存中…");
+  const media=[];
+
+  // Upload each pending file
+  for(const item of pending){
+    if(G.accessToken){
+      try{
+        const result=await uploadToDrive(item.blob,item.name,item.blob.type,todayStr());
+        media.push({type:item.type,dataUrl:item.type==="image"?item.dataUrl:"",driveUrl:result.webViewLink,driveName:item.name});
+      }catch(e){
+        media.push({type:item.type,dataUrl:item.dataUrl});
+        setStatus(blockId,"⚠ 上傳失敗，已存本機："+e.message);
+      }
+    } else {
+      // store locally only (audio/image dataUrl) — skip large videos
+      if(item.type!=="video") media.push({type:item.type,dataUrl:item.dataUrl});
+      else media.push({type:"video",dataUrl:"",note:"（影片未登入，未儲存）"});
+    }
+  }
+
+  const entry={
+    date:todayStr(),
+    subjectId:subj?.id||"free",
+    subject:subj?.label||"自由探索",
+    emoji:subj?.emoji||"📝",
+    note:noteText,
+    media,
+  };
+  G.records=[entry,...G.records].slice(0,500);
+  lsSet(K.records,G.records);
+  G.pendingUploads[blockId]=[];
+  if(!G.blockNotes) G.blockNotes={};
+  G.blockNotes[blockId]="";
+  setStatus(blockId,G.accessToken?"✓ 已存進歷程並上傳 Drive！":"✓ 已存進歷程（本機）");
+  setTimeout(()=>setStatus(blockId,""),3000);
+  render();
+  // 自動靜默備份
+  if(G.accessToken) driveBackupSilent();
+}
+
+// 靜默備份（不顯示狀態列，背景執行）
+async function driveBackupSilent(){
+  try{
+    const payload=JSON.stringify({version:4,exportedAt:new Date().toISOString(),subjects:G.subjects,schedule:G.schedule,records:G.records,rituals:G.rituals});
+    const parentId=await ensureFolder();
+    let fileId=await getDriveBackupId();
+    if(!fileId){
+      const m=await(await fetch("https://www.googleapis.com/drive/v3/files",{method:"POST",headers:{Authorization:`Bearer ${G.accessToken}`,"Content-Type":"application/json"},body:JSON.stringify({name:DRIVE_BACKUP,mimeType:"application/json",parents:[parentId]})})).json();
+      fileId=m.id;
+    }
+    await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,{method:"PATCH",headers:{Authorization:`Bearer ${G.accessToken}`,"Content-Type":"application/json"},body:payload});
+    setSyncStatus("✓ 自動備份  "+new Date().toLocaleTimeString());
+  }catch(e){setSyncStatus("自動備份失敗："+e.message);}
+}
+
+function setStatus(blockId,msg){
+  const el=document.getElementById("status-"+blockId);
+  if(el) el.textContent=msg;
+}
+
+// ═══ TASK TOGGLE ═════════════════════════════════════════════════════════
+function toggleStep(blockId,idx){
+  if(!G.taskMap[blockId]){
+    const dow=new Date().getDay();
+    const blk=(G.schedule[dow]||[]).find(b=>b.id===blockId);
+    const subj=blk?getSub(blk.subjectId):null;
+    G.taskMap[blockId]=subj?subj.steps.map(()=>false):[];
+  }
+  G.taskMap[blockId][idx]=!G.taskMap[blockId][idx];
+  lsSet(K.tasks(blockId),G.taskMap[blockId]);
+  render();
+}
+
+// ═══ TIMER ═══════════════════════════════════════════════════════════════
+function toggleTimer(){
+  G.timerRunning=!G.timerRunning;
+  if(G.timerRunning){
+    G.timerInterval=setInterval(()=>{
+      G.timerSecs--;
+      if(G.timerSecs<=0){
+        clearInterval(G.timerInterval);G.timerRunning=false;
+        G.timerPhase=G.timerPhase==="work"?"break":"work";
+        G.timerSecs=G.timerPhase==="work"?G.workMins*60:G.breakMins*60;
+      }
+      updateTimerDisplay();
+    },1000);
+  } else clearInterval(G.timerInterval);
+  render();
+}
+function resetTimer(){clearInterval(G.timerInterval);G.timerRunning=false;G.timerSecs=G.workMins*60;G.timerPhase="work";render();}
+function updateTimerDisplay(){
+  const mm=String(Math.floor(G.timerSecs/60)).padStart(2,"0");
+  const ss=String(G.timerSecs%60).padStart(2,"0");
+  const el=document.getElementById("timer-display");if(el) el.textContent=`${mm}:${ss}`;
+  const total=G.timerPhase==="work"?G.workMins*60:G.breakMins*60;
+  const pct=((total-G.timerSecs)/total)*100;
+  const fill=document.querySelector("#content .prog-bar-fill");if(fill) fill.style.width=pct+"%";
+}
+
+// ═══ DRIVE BACKUP / RESTORE ══════════════════════════════════════════════
+async function getDriveBackupId(){
+  const pid=await ensureFolder();
+  const q=encodeURIComponent(`name='${DRIVE_BACKUP}' and '${pid}' in parents and trashed=false`);
+  const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`,{headers:{Authorization:`Bearer ${G.accessToken}`}});
+  const d=await r.json();return d.files?.[0]?.id||null;
+}
+async function driveBackup(){
+  if(!G.accessToken){alert("請先登入 Google");return;}
+  setSyncStatus("備份中…");
+  try{
+    const payload=JSON.stringify({version:4,exportedAt:new Date().toISOString(),subjects:G.subjects,schedule:G.schedule,records:G.records,rituals:G.rituals},null,2);
+    const parentId=await ensureFolder();
+    let fileId=await getDriveBackupId();
+    if(!fileId){
+      const m=await(await fetch("https://www.googleapis.com/drive/v3/files",{method:"POST",headers:{Authorization:`Bearer ${G.accessToken}`,"Content-Type":"application/json"},body:JSON.stringify({name:DRIVE_BACKUP,mimeType:"application/json",parents:[parentId]})})).json();
+      fileId=m.id;
+    }
+    await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,{method:"PATCH",headers:{Authorization:`Bearer ${G.accessToken}`,"Content-Type":"application/json"},body:payload});
+    setSyncStatus("✓ 已備份  "+new Date().toLocaleTimeString());
+  }catch(e){setSyncStatus("備份失敗："+e.message);}
+}
+async function driveRestore(){
+  if(!G.accessToken){alert("請先登入 Google");return;}
+  if(!confirm("從 Drive 載入會覆蓋目前的科目和課表，確定嗎？")) return;
+  setSyncStatus("載入中…");
+  try{
+    const fileId=await getDriveBackupId();
+    if(!fileId){setSyncStatus("Drive 上找不到備份");return;}
+    const d=await(await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,{headers:{Authorization:`Bearer ${G.accessToken}`}})).json();
+    if(d.subjects){G.subjects=d.subjects;lsSet(K.subjects,G.subjects);}
+    if(d.schedule){G.schedule=d.schedule;lsSet(K.schedule,G.schedule);}
+    if(d.records){G.records=d.records;lsSet(K.records,G.records);}
+    if(d.rituals){G.rituals=d.rituals;lsSet(K.rituals,G.rituals);}
+    setSyncStatus("✓ 已載入  "+new Date().toLocaleTimeString());
+    render();
+  }catch(e){setSyncStatus("載入失敗："+e.message);}
+}
+function setSyncStatus(msg){const el=document.getElementById("sync-status");if(el) el.textContent=msg;}
+
+// ═══ MODALS ══════════════════════════════════════════════════════════════
+function openModal(html){document.getElementById("modal-box").innerHTML=html;document.getElementById("modal-overlay").classList.add("open");document.getElementById("modal-overlay").onclick=(e)=>{if(e.target===document.getElementById("modal-overlay"))closeModal();};}
+function closeModal(){document.getElementById("modal-overlay").classList.remove("open");}
+
+function openRitualsModal(){
+  let rituals=[...G.rituals];
+  function html(){return `<div class="modal-title">✏️ 啟動儀式</div>
+    <div style="font-size:14px;color:var(--muted);margin-bottom:16px">每次按計時器開始前的小步驟</div>
+    <div id="ritual-list">${rituals.map((r,i)=>`<div class="step-field"><input type="text" class="ritual-input" data-i="${i}" value="${escHtml(r)}" placeholder="步驟 ${i+1}"><button class="remove-step" data-ri="${i}">×</button></div>`).join("")}</div>
+    ${rituals.length<8?`<button class="add-step-btn" id="add-ritual">＋ 加一個步驟</button>`:""}
+    <button class="btn" id="save-rituals" style="background:var(--blue);color:#fff;margin-top:8px">儲存</button>`;}
+  openModal(html());
+  function bind(){
+    document.querySelectorAll(".ritual-input").forEach(el=>{el.oninput=()=>{rituals[+el.dataset.i]=el.value;};});
+    document.querySelectorAll(".remove-step[data-ri]").forEach(el=>{el.onclick=()=>{rituals.splice(+el.dataset.ri,1);openModal(html());bind();};});
+    const ar=document.getElementById("add-ritual");if(ar) ar.onclick=()=>{rituals.push("");openModal(html());bind();};
+    document.getElementById("save-rituals").onclick=()=>{
+      rituals=Array.from(document.querySelectorAll(".ritual-input")).map(el=>el.value.trim()).filter(Boolean);
+      G.rituals=rituals;lsSet(K.rituals,G.rituals);closeModal();render();
+    };
+  }
+  bind();
+}
+
+function openSubjectModal(id){
+  const isNew=!id;
+  const base=isNew?{id:uid(),label:"",emoji:"📌",color:COLORS[0],steps:["","",""]}:{...G.subjects.find(s=>s.id===id),steps:[...G.subjects.find(s=>s.id===id).steps]};
+  const subj=base;
+  function html(){return `<div class="modal-title">${isNew?"新增科目":"編輯科目"}</div>
+    <div class="modal-field"><label class="modal-label">名稱</label><input type="text" id="m-label" value="${escHtml(subj.label)}" placeholder="例：鋼琴課…"></div>
+    <div class="modal-field"><label class="modal-label">Emoji</label><input type="text" id="m-emoji" value="${subj.emoji}" style="width:80px;font-size:28px;text-align:center"></div>
+    <div class="modal-field"><label class="modal-label">顏色</label><div class="color-grid">${COLORS.map(c=>`<div class="color-swatch${subj.color===c?' selected':''}" style="background:${c}" data-c="${c}"></div>`).join("")}</div></div>
+    <div class="modal-field"><label class="modal-label">每天的步驟</label>
+      <div id="steps-list">${subj.steps.map((s,i)=>`<div class="step-field"><input type="text" class="step-input" data-i="${i}" value="${escHtml(s)}" placeholder="步驟 ${i+1}"><button class="remove-step" data-ri="${i}">×</button></div>`).join("")}</div>
+      ${subj.steps.length<6?`<button class="add-step-btn" id="add-step">＋ 加步驟</button>`:""}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn" id="m-save" style="background:var(--blue);color:#fff">${isNew?"新增":"儲存"}</button>
+      ${!isNew?`<button class="btn btn-outline" id="m-del" style="color:var(--red);border-color:var(--red)">刪除科目</button>`:""}
+    </div>`;}
+  openModal(html());
+  function bind(){
+    document.querySelectorAll(".color-swatch").forEach(el=>{el.onclick=()=>{subj.color=el.dataset.c;openModal(html());bind();};});
+    document.querySelectorAll(".step-input").forEach(el=>{el.oninput=()=>{subj.steps[+el.dataset.i]=el.value;};});
+    document.querySelectorAll(".remove-step[data-ri]").forEach(el=>{el.onclick=()=>{subj.steps.splice(+el.dataset.ri,1);openModal(html());bind();};});
+    const as=document.getElementById("add-step");if(as) as.onclick=()=>{subj.steps.push("");openModal(html());bind();};
+    document.getElementById("m-save").onclick=()=>{
+      subj.label=document.getElementById("m-label").value.trim();
+      subj.emoji=document.getElementById("m-emoji").value.trim()||"📌";
+      subj.steps=Array.from(document.querySelectorAll(".step-input")).map(el=>el.value);
+      if(!subj.label) return;
+      G.subjects=isNew?[...G.subjects,subj]:G.subjects.map(s=>s.id===subj.id?subj:s);
+      lsSet(K.subjects,G.subjects);closeModal();render();
+    };
+    const md=document.getElementById("m-del");
+    if(md) md.onclick=()=>{if(!confirm("確定刪除？")) return;G.subjects=G.subjects.filter(s=>s.id!==subj.id);lsSet(K.subjects,G.subjects);closeModal();render();};
+  }
+  bind();
+}
+
+function openBlockModal(dayIdx,blockId){
+  const isNew=!blockId;
+  const existing=!isNew?(G.schedule[dayIdx]||[]).find(b=>b.id===blockId):null;
+  const blk=existing?{...existing}:{id:uid(),subjectId:G.subjects[0]?.id||"",label:"",startTime:"09:00",endTime:"11:00"};
+  function html(){
+    const sel=G.subjects.find(s=>s.id===blk.subjectId);
+    return `<div class="modal-title">${DAY_ZH[dayIdx]}・${isNew?"新增課程":"編輯課程"}</div>
+    <div class="modal-field"><label class="modal-label">選擇科目</label>
+      <div class="subject-chips">${G.subjects.map(s=>`<button class="subject-chip${blk.subjectId===s.id?' selected':''}" data-sid="${s.id}" style="${blk.subjectId===s.id?`background:${s.color};border-color:${s.color}`:''}"> ${s.emoji} ${escHtml(s.label)}</button>`).join("")}</div>
+    </div>
+    <div class="modal-field"><label class="modal-label">顯示名稱（可留空）</label><input type="text" id="m-blabel" value="${escHtml(blk.label)}" placeholder="${escHtml(sel?.label||'')}"></div>
+    <div class="time-row modal-field">
+      <div><label class="modal-label">開始</label><input type="time" id="m-start" value="${blk.startTime}"></div>
+      <div><label class="modal-label">結束</label><input type="time" id="m-end" value="${blk.endTime}"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn" id="mb-save" style="background:${sel?.color||'var(--blue)'};color:#fff">${isNew?"加入課表":"儲存"}</button>
+      ${!isNew?`<button class="btn btn-outline" id="mb-del" style="color:var(--red);border-color:var(--red)">刪除課程</button>`:""}
+    </div>`;}
+  openModal(html());
+  function bind(){
+    document.querySelectorAll(".subject-chip").forEach(el=>{el.onclick=()=>{blk.subjectId=el.dataset.sid;openModal(html());bind();};});
+    document.getElementById("mb-save").onclick=()=>{
+      blk.label=document.getElementById("m-blabel").value.trim();
+      blk.startTime=document.getElementById("m-start").value;
+      blk.endTime=document.getElementById("m-end").value;
+      const prev=G.schedule[dayIdx]||[];
+      G.schedule[dayIdx]=isNew?[...prev,blk]:prev.map(b=>b.id===blk.id?blk:b);
+      lsSet(K.schedule,G.schedule);closeModal();render();
+    };
+    const md=document.getElementById("mb-del");
+    if(md) md.onclick=()=>{if(!confirm("確定刪除？")) return;G.schedule[dayIdx]=(G.schedule[dayIdx]||[]).filter(b=>b.id!==blockId);lsSet(K.schedule,G.schedule);closeModal();render();};
+  }
+  bind();
+}
+
+// ═══ UTILS ═══════════════════════════════════════════════════════════════
+function escHtml(s=""){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function updateClock(){
+  const n=new Date();
+  const h=String(n.getHours()).padStart(2,"0"),m=String(n.getMinutes()).padStart(2,"0");
+  const el=document.getElementById("clock");if(el) el.textContent=`${h}:${m}`;
+  const dl=document.getElementById("date-label");if(dl) dl.textContent=`${DAY_ZH[n.getDay()]}・${todayStr()}`;
+}
+setInterval(updateClock,1000);updateClock();
+
+// ═══ INIT ════════════════════════════════════════════════════════════════
+window.addEventListener("load",()=>{
+  setTimeout(initGoogleAuth,800);
+  if(G.accessToken) setSyncStatus(`已登入 ${G.userEmail}`);
+});
+loadAll();render();
+</script>
+</body>
+</html>
