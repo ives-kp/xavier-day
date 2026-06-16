@@ -1039,6 +1039,49 @@ window.addEventListener("load",()=>{
   setTimeout(initGoogleAuth,800);
   if(G.accessToken) setSyncStatus(`已登入 ${G.userEmail}`);
 });
+// ── 一次性資料遷移 xv3 → xv4 ──────────────────────────────────────────
+function migrateFromV3(){
+  if(localStorage.getItem("xv4_migrated")) return;
+  const map=[
+    ["xv3_subjects","xv4_subjects"],
+    ["xv3_schedule","xv4_schedule"],
+    ["xv3_records","xv4_records"],
+    ["xv3_rituals","xv4_rituals"],
+    ["xv3_workMins","xv4_workMins"],
+    ["xv3_breakMins","xv4_breakMins"],
+  ];
+  let moved=0;
+  map.forEach(([from,to])=>{
+    const v=localStorage.getItem(from);
+    if(v&&!localStorage.getItem(to)){
+      localStorage.setItem(to,v);
+      moved++;
+    }
+  });
+  // migrate daily tasks (xv3_tasks_YYYY-MM-DD_blockId -> xv4_...)
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(k&&k.startsWith("xv3_tasks_")){
+      const newKey=k.replace("xv3_tasks_","xv4_tasks_");
+      if(!localStorage.getItem(newKey)) localStorage.setItem(newKey,localStorage.getItem(k));
+      moved++;
+    }
+    if(k&&k.startsWith("xv3_one_")){
+      const newKey=k.replace("xv3_one_","xv4_one_");
+      if(!localStorage.getItem(newKey)) localStorage.setItem(newKey,localStorage.getItem(k));
+      moved++;
+    }
+    if(k&&k.startsWith("xv3_note_")){
+      const newKey=k.replace("xv3_note_","xv4_note_");
+      if(!localStorage.getItem(newKey)) localStorage.setItem(newKey,localStorage.getItem(k));
+      moved++;
+    }
+  }
+  localStorage.setItem("xv4_migrated","1");
+  if(moved>0) console.log("Migrated "+moved+" items from xv3 to xv4");
+}
+
+migrateFromV3();
 loadAll();render();
 </script>
 </body>
