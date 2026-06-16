@@ -139,6 +139,15 @@
   /* Recording indicator */
   .rec-indicator{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--red);margin-right:6px;animation:pulse 1s infinite;}
   @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+  /* Points */
+  .points-bar{background:linear-gradient(135deg,#1a1a2e,#2d2d5e);border-radius:18px;padding:16px 20px;margin-bottom:14px;display:flex;align-items:center;gap:16px;color:#fff;}
+  .points-total{font-size:48px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1;color:#FFD700;}
+  .points-label{font-size:12px;font-weight:800;color:rgba(255,255,255,0.6);letter-spacing:1.5px;text-transform:uppercase;}
+  .points-today{font-size:22px;font-weight:800;color:#5BF5A0;}
+  .point-pop{position:fixed;pointer-events:none;font-size:28px;font-weight:900;color:#FFD700;text-shadow:0 2px 8px rgba(0,0,0,0.3);z-index:999;animation:pointPop 1.2s ease-out forwards;}
+  @keyframes pointPop{0%{opacity:1;transform:translateY(0) scale(1);}100%{opacity:0;transform:translateY(-80px) scale(1.4);}}
+  .bonus-flash{background:#FFD700;border-radius:14px;padding:10px 16px;text-align:center;font-size:17px;font-weight:900;color:#1a1a2e;margin-bottom:14px;animation:bonusFade 3s ease-out forwards;}
+  @keyframes bonusFade{0%,50%{opacity:1;}100%{opacity:0;}}
   @media(min-width:600px){
     #content{padding:22px 24px calc(var(--safe-bot) + 24px);}
     #clock{font-size:52px;}
@@ -239,6 +248,9 @@ let G={
   mediaRecorder:null,audioChunks:[],isRecording:false,
   // pending uploads per block
   pendingUploads:{}, // blockId -> [{type,dataUrl,name}]
+  // points
+  totalPoints:0,
+  pointsLog:[],  // [{date,reason,delta}]
 };
 
 function todayStr(){return new Date().toISOString().split("T")[0];}
@@ -249,6 +261,8 @@ const K={
   subjects:"xv4_subjects",schedule:"xv4_schedule",records:"xv4_records",
   rituals:"xv4_rituals",workMins:"xv4_workMins",breakMins:"xv4_breakMins",
   token:"xv4_token",email:"xv4_email",folderId:"xv4_folderid",
+  totalPoints:"xv4_total_points",pointsLog:"xv4_points_log",
+  dayBonus:(d)=>`xv4_bonus_${d}`,
   oneThing:()=>`xv4_one_${todayStr()}`,note:()=>`xv4_note_${todayStr()}`,
   tasks:(bid)=>`xv4_tasks_${todayStr()}_${bid}`,
 };
@@ -266,6 +280,8 @@ function loadAll(){
   G.accessToken=lsGet(K.token,null);
   G.userEmail  =lsGet(K.email,"");
   G.driveFolderId=lsGet(K.folderId,null);
+  G.totalPoints=lsGet(K.totalPoints,0);
+  G.pointsLog=lsGet(K.pointsLog,[]);
   const dow=new Date().getDay();
   (G.schedule[dow]||[]).forEach(b=>{
     const s=G.subjects.find(s=>s.id===b.subjectId);
@@ -407,7 +423,19 @@ function renderToday(){
   const total=blocks.reduce((a,b)=>{const s=getSub(b.subjectId);return a+(s?s.steps.length:0);},0);
   const done=blocks.reduce((a,b)=>{const ts=G.taskMap[b.id]||[];return a+ts.filter(Boolean).length;},0);
   const pct=total>0?Math.round(done/total*100):0;
+  const todayPts=calcTodayPoints();
   let h="";
+  // Points bar
+  h+=`<div class="points-bar">
+    <div style="flex:1">
+      <div class="points-label">累積點數 TOTAL</div>
+      <div class="points-total">⭐ ${G.totalPoints}</div>
+    </div>
+    <div style="text-align:right">
+      <div class="points-label">今天得到</div>
+      <div class="points-today">+${todayPts}</div>
+    </div>
+  </div>`;
   if(total>0) h+=`<div class="card"><div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted);font-weight:700;margin-bottom:8px"><span>今天進度</span><span>${done}/${total} ${pct}%</span></div><div class="prog-bar-bg"><div class="prog-bar-fill" style="width:${pct}%;background:${pct===100?'var(--green)':'var(--blue)'}"></div></div></div>`;
   h+=`<div class="card"><div class="card-label">今天最重要的一件事</div><textarea class="one-thing-input" id="one-thing" rows="2" placeholder="一句話就好…">${escHtml(G.oneThing)}</textarea></div>`;
   if(blocks.length===0) h+=`<div class="empty"><div class="empty-icon">🗓️</div><div class="empty-title">今天還沒有課表</div><div class="empty-sub">去「編輯」頁面新增今天的課程</div></div>`;
@@ -517,7 +545,23 @@ function renderRecords(){
 // ── EDIT ──────────────────────────────────────────────────────────────────
 function renderEdit(){
   const dow=new Date().getDay();
-  return `<div style="margin-bottom:24px">
+  const recentLog=G.pointsLog.slice(0,5);
+  return `<div class="card" style="background:linear-gradient(135deg,#1a1a2e,#2d2d5e);color:#fff;margin-bottom:20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div>
+        <div style="font-size:12px;font-weight:800;color:rgba(255,255,255,0.6);letter-spacing:1.5px;margin-bottom:4px">⭐ 累積點數</div>
+        <div style="font-size:52px;font-weight:900;color:#FFD700;line-height:1">${G.totalPoints}</div>
+      </div>
+      <button data-action="redeem-points" style="padding:12px 18px;border-radius:14px;border:2px solid #FFD700;background:transparent;color:#FFD700;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">兌換點數</button>
+    </div>
+    <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:8px;font-weight:700;letter-spacing:1px">最近紀錄</div>
+    ${recentLog.length===0?'<div style="font-size:14px;color:rgba(255,255,255,0.4)">還沒有點數紀錄</div>':
+      recentLog.map(l=>`<div style="display:flex;justify-content:space-between;font-size:14px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.08)">
+        <span style="color:rgba(255,255,255,0.7)">${l.date} ${l.reason}</span>
+        <span style="color:${l.delta>0?'#5BF5A0':'#FF6B6B'};font-weight:800">${l.delta>0?'+':''}${l.delta}</span>
+      </div>`).join('')}
+  </div>
+  <div style="margin-bottom:24px">
     <div class="section-header"><div class="section-title">📚 科目管理</div><button class="icon-btn" data-action="new-subject">＋ 新增</button></div>
     ${G.subjects.map(s=>`<div class="edit-row" data-action="edit-subject" data-id="${s.id}"><span class="edit-emoji">${s.emoji}</span><div class="edit-info"><div class="edit-name">${escHtml(s.label)}</div><div class="edit-sub">${s.steps.length} 個步驟</div></div><div class="color-dot" style="background:${s.color}"></div><span class="chevron">›</span></div>`).join("")}
   </div>
@@ -568,6 +612,7 @@ function attachListeners(){
       if(a==="new-block") openBlockModal(+el.dataset.day,null);
       if(a==="edit-block") openBlockModal(+el.dataset.day,el.dataset.bid);
       if(a==="edit-rituals") openRitualsModal();
+      if(a==="redeem-points") openRedeemModal();
       if(a==="take-photo") triggerFileInput("file-photo",el.dataset.block,"image");
       if(a==="pick-photo") triggerFileInput("file-photo-lib",el.dataset.block,"image");
       if(a==="take-video") triggerFileInput("file-video",el.dataset.block,"video");
@@ -727,6 +772,49 @@ function setStatus(blockId,msg){
 }
 
 // ═══ TASK TOGGLE ═════════════════════════════════════════════════════════
+function calcTodayPoints(){
+  const dow=new Date().getDay();
+  const blocks=G.schedule[dow]||[];
+  return blocks.reduce((a,b)=>{const ts=G.taskMap[b.id]||[];return a+ts.filter(Boolean).length;},0);
+}
+
+function addPoints(delta,reason,el){
+  G.totalPoints=Math.max(0,G.totalPoints+delta);
+  lsSet(K.totalPoints,G.totalPoints);
+  G.pointsLog=[{date:todayStr(),reason,delta},...G.pointsLog].slice(0,500);
+  lsSet(K.pointsLog,G.pointsLog);
+  // floating +1 animation
+  if(delta>0 && el){
+    const rect=el.getBoundingClientRect();
+    const pop=document.createElement("div");
+    pop.className="point-pop";
+    pop.textContent="⭐ +"+delta;
+    pop.style.left=(rect.left+rect.width/2-20)+"px";
+    pop.style.top=(rect.top-10)+"px";
+    document.body.appendChild(pop);
+    setTimeout(()=>pop.remove(),1300);
+  }
+}
+
+function checkDayBonus(){
+  const dow=new Date().getDay();
+  const blocks=(G.schedule[dow]||[]);
+  if(blocks.length===0) return;
+  const total=blocks.reduce((a,b)=>{const s=getSub(b.subjectId);return a+(s?s.steps.length:0);},0);
+  const done=blocks.reduce((a,b)=>{const ts=G.taskMap[b.id]||[];return a+ts.filter(Boolean).length;},0);
+  if(total>0 && done===total && !lsGet(K.dayBonus(todayStr()),false)){
+    lsSet(K.dayBonus(todayStr()),true);
+    addPoints(5,"今天全部完成！",null);
+    // show bonus flash
+    const flash=document.createElement("div");
+    flash.className="bonus-flash";
+    flash.textContent="🎉 全部完成！額外 +5 點！";
+    const content=document.getElementById("content");
+    if(content) content.insertBefore(flash,content.firstChild);
+    setTimeout(()=>flash.remove(),3000);
+  }
+}
+
 function toggleStep(blockId,idx){
   if(!G.taskMap[blockId]){
     const dow=new Date().getDay();
@@ -734,9 +822,14 @@ function toggleStep(blockId,idx){
     const subj=blk?getSub(blk.subjectId):null;
     G.taskMap[blockId]=subj?subj.steps.map(()=>false):[];
   }
-  G.taskMap[blockId][idx]=!G.taskMap[blockId][idx];
+  const wasChecked=G.taskMap[blockId][idx];
+  G.taskMap[blockId][idx]=!wasChecked;
   lsSet(K.tasks(blockId),G.taskMap[blockId]);
+  // points: +1 for check, -1 for uncheck
+  const btn=document.querySelector(`[data-block="${blockId}"][data-idx="${idx}"]`);
+  addPoints(wasChecked?-1:1, wasChecked?"取消步驟":"完成步驟", wasChecked?null:btn);
   render();
+  if(!wasChecked) setTimeout(checkDayBonus,100);
 }
 
 // ═══ TIMER ═══════════════════════════════════════════════════════════════
@@ -808,6 +901,36 @@ function setSyncStatus(msg){const el=document.getElementById("sync-status");if(e
 // ═══ MODALS ══════════════════════════════════════════════════════════════
 function openModal(html){document.getElementById("modal-box").innerHTML=html;document.getElementById("modal-overlay").classList.add("open");document.getElementById("modal-overlay").onclick=(e)=>{if(e.target===document.getElementById("modal-overlay"))closeModal();};}
 function closeModal(){document.getElementById("modal-overlay").classList.remove("open");}
+
+function openRedeemModal(){
+  openModal(`<div class="modal-title">⭐ 兌換點數</div>
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:52px;font-weight:900;color:#FFD700">${G.totalPoints}</div>
+      <div style="font-size:14px;color:var(--muted);font-weight:700">目前點數</div>
+    </div>
+    <div style="font-size:14px;color:var(--muted);margin-bottom:12px;font-weight:700">扣除點數（螢幕時間兌換）</div>
+    <div style="display:flex;gap:10px;margin-bottom:16px">
+      ${[5,10,15,20,30].map(n=>`<button onclick="redeemPoints(${n})" style="flex:1;padding:12px 4px;border-radius:12px;border:2px solid var(--border);background:#fff;font-size:15px;font-weight:800;cursor:pointer;color:var(--dark)">-${n}</button>`).join('')}
+    </div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:12px">或自訂扣除數量：</div>
+    <div style="display:flex;gap:10px">
+      <input type="number" id="custom-redeem" min="1" max="${G.totalPoints}" placeholder="輸入點數" style="flex:1">
+      <button onclick="redeemCustom()" style="padding:12px 16px;border-radius:12px;border:none;background:var(--blue);color:#fff;font-size:15px;font-weight:800;cursor:pointer">扣除</button>
+    </div>
+    <button onclick="closeModal()" style="width:100%;margin-top:16px;padding:14px;border-radius:16px;border:2px solid var(--border);background:#fff;font-size:17px;font-weight:800;cursor:pointer;color:#888">關閉</button>`);
+}
+function redeemPoints(n){
+  if(G.totalPoints<n){alert("點數不足！");return;}
+  addPoints(-n,"媽媽兌換：螢幕時間",null);
+  closeModal();render();
+}
+function redeemCustom(){
+  const n=+document.getElementById("custom-redeem").value;
+  if(!n||n<=0){alert("請輸入有效點數");return;}
+  if(G.totalPoints<n){alert("點數不足！");return;}
+  addPoints(-n,"媽媽兌換：螢幕時間",null);
+  closeModal();render();
+}
 
 function openRitualsModal(){
   let rituals=[...G.rituals];
