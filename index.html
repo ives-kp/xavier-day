@@ -884,7 +884,7 @@ async function driveBackup(){
   try{
     const payload=JSON.stringify({version:4,exportedAt:new Date().toISOString(),subjects:G.subjects,schedule:G.schedule,records:G.records,rituals:G.rituals},null,2);
     const parentId=await ensureFolder();
-    let fileId=await getDriveBackupId();
+    let fileId=PUBLIC_BACKUP_FILE_ID||lsGet("xv4_public_file_id",null)||await getDriveBackupId();
     let isNewFile=false;
     if(!fileId){
       const m=await(await fetch("https://www.googleapis.com/drive/v3/files",{method:"POST",headers:{Authorization:`Bearer ${G.accessToken}`,"Content-Type":"application/json"},body:JSON.stringify({name:DRIVE_BACKUP,mimeType:"application/json",parents:[parentId]})})).json();
@@ -907,9 +907,26 @@ async function driveRestore(){
   if(!confirm("從 Drive 載入會覆蓋目前的科目和課表，確定嗎？")) return;
   setSyncStatus("載入中…");
   try{
-    const fileId=await getDriveBackupId();
+    // 優先使用已知的固定檔案 ID（比搜尋更可靠），找不到才退回搜尋
+    let fileId=PUBLIC_BACKUP_FILE_ID||lsGet("xv4_public_file_id",null);
+    if(!fileId) fileId=await getDriveBackupId();
     if(!fileId){setSyncStatus("Drive 上找不到備份");return;}
-    const d=await(await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,{headers:{Authorization:`Bearer ${G.accessToken}`}})).json();
+    const res=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,{headers:{Authorization:`Bearer ${G.accessToken}`}});
+    if(!res.ok){
+      // 固定 ID 失效時，退回搜尋一次
+      const searchedId=await getDriveBackupId();
+      if(!searchedId){setSyncStatus("Drive 上找不到備份");return;}
+      const res2=await fetch(`https://www.googleapis.com/drive/v3/files/${searchedId}?alt=media`,{headers:{Authorization:`Bearer ${G.accessToken}`}});
+      const d2=await res2.json();
+      if(d2.subjects){G.subjects=d2.subjects;lsSet(K.subjects,G.subjects);}
+      if(d2.schedule){G.schedule=d2.schedule;lsSet(K.schedule,G.schedule);}
+      if(d2.records){G.records=d2.records;lsSet(K.records,G.records);}
+      if(d2.rituals){G.rituals=d2.rituals;lsSet(K.rituals,G.rituals);}
+      setSyncStatus("✓ 已載入  "+new Date().toLocaleTimeString());
+      render();
+      return;
+    }
+    const d=await res.json();
     if(d.subjects){G.subjects=d.subjects;lsSet(K.subjects,G.subjects);}
     if(d.schedule){G.schedule=d.schedule;lsSet(K.schedule,G.schedule);}
     if(d.records){G.records=d.records;lsSet(K.records,G.records);}
