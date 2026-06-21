@@ -178,7 +178,7 @@
   <div id="sync-bar">
     <span id="sync-status">請先登入 Google 以啟用 Drive 備份</span>
     <button class="icon-btn" id="btn-backup" onclick="driveBackup()">⬆ 備份</button>
-    <button class="icon-btn" id="btn-restore" onclick="driveRestore()">⬇ 載入</button>
+    <button class="icon-btn" id="btn-restore" onclick="handleRestoreClick()">⬇ 載入</button>
   </div>
 </div>
 <div id="modal-overlay"><div id="modal-box"></div></div>
@@ -194,6 +194,8 @@ const CLIENT_ID = "207290352759-ccc9hp6l16edoe8ta24kiumv8m9ed6l6.apps.googleuser
 const SCOPES = "https://www.googleapis.com/auth/drive.file";
 const DRIVE_FOLDER = "Xavier 學習歷程";
 const DRIVE_BACKUP = "xavier-day-backup.json";
+// 公開備份檔案的固定 ID（第一次備份成功後會顯示在畫面上，請貼到這裡讓所有未登入裝置都能讀到）
+const PUBLIC_BACKUP_FILE_ID = "17HL0rfW5-wFOWpBArYBZjyavAtFUcRp3";
 
 // ═══ CONSTANTS ═══════════════════════════════════════════════════════════
 const COLORS=["#4A90D9","#5BA85B","#E8A838","#9B59B6","#E74C3C","#2ECC71","#F39C12","#1ABC9C","#E67E22","#8E44AD","#C0392B","#27AE60","#16A085","#D35400"];
@@ -633,7 +635,7 @@ function attachListeners(){
   });
 
   document.getElementById("btn-backup").onclick=driveBackup;
-  document.getElementById("btn-restore").onclick=driveRestore;
+  document.getElementById("btn-restore").onclick=handleRestoreClick;
 }
 
 function triggerFileInput(inputId,blockId,type){
@@ -865,6 +867,17 @@ async function getDriveBackupId(){
   const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`,{headers:{Authorization:`Bearer ${G.accessToken}`}});
   const d=await r.json();return d.files?.[0]?.id||null;
 }
+// 把備份檔設成「知道連結的人都可檢視」，這樣 Xavier 的裝置不用登入也能讀取
+async function makeFilePublic(fileId){
+  try{
+    await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`,{
+      method:"POST",
+      headers:{Authorization:`Bearer ${G.accessToken}`,"Content-Type":"application/json"},
+      body:JSON.stringify({role:"reader",type:"anyone"})
+    });
+  }catch(e){console.warn("設定公開連結失敗",e);}
+}
+
 async function driveBackup(){
   if(!G.accessToken){alert("請先登入 Google");return;}
   setSyncStatus("備份中…");
@@ -872,14 +885,23 @@ async function driveBackup(){
     const payload=JSON.stringify({version:4,exportedAt:new Date().toISOString(),subjects:G.subjects,schedule:G.schedule,records:G.records,rituals:G.rituals},null,2);
     const parentId=await ensureFolder();
     let fileId=await getDriveBackupId();
+    let isNewFile=false;
     if(!fileId){
       const m=await(await fetch("https://www.googleapis.com/drive/v3/files",{method:"POST",headers:{Authorization:`Bearer ${G.accessToken}`,"Content-Type":"application/json"},body:JSON.stringify({name:DRIVE_BACKUP,mimeType:"application/json",parents:[parentId]})})).json();
-      fileId=m.id;
+      fileId=m.id;isNewFile=true;
     }
     await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,{method:"PATCH",headers:{Authorization:`Bearer ${G.accessToken}`,"Content-Type":"application/json"},body:payload});
-    setSyncStatus("✓ 已備份  "+new Date().toLocaleTimeString());
+    if(isNewFile) await makeFilePublic(fileId);
+    lsSet("xv4_public_file_id",fileId);
+    if(isNewFile && !PUBLIC_BACKUP_FILE_ID){
+      setSyncStatus("✓ 已備份！請把這組 ID 告訴開發者填入程式：「"+fileId+"」");
+      alert("第一次備份成功！\n\n為了讓 Xavier 的裝置不用登入也能同步課表，請把這組 ID 複製給我（負責設定工具的人），加進程式碼裡：\n\n"+fileId+"\n\n（這個視窗的文字可以長按複製）");
+    } else {
+      setSyncStatus("✓ 已備份  "+new Date().toLocaleTimeString());
+    }
   }catch(e){setSyncStatus("備份失敗："+e.message);}
 }
+
 async function driveRestore(){
   if(!G.accessToken){alert("請先登入 Google");return;}
   if(!confirm("從 Drive 載入會覆蓋目前的科目和課表，確定嗎？")) return;
@@ -896,7 +918,38 @@ async function driveRestore(){
     render();
   }catch(e){setSyncStatus("載入失敗："+e.message);}
 }
+
+// ── 公開連結載入（給 Xavier 的裝置用，不需要登入）─────────────────────────
+async function fetchPublicBackup(silent){
+  const fileId=PUBLIC_BACKUP_FILE_ID||lsGet("xv4_public_file_id",null);
+  if(!fileId){
+    if(!silent) setSyncStatus("尚未有公開備份，請家長先在自己的裝置上按「備份」");
+    return false;
+  }
+  try{
+    const r=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
+    if(!r.ok) throw new Error("無法讀取（檔案可能還未設為公開）");
+    const d=await r.json();
+    if(d.subjects){G.subjects=d.subjects;lsSet(K.subjects,G.subjects);}
+    if(d.schedule){G.schedule=d.schedule;lsSet(K.schedule,G.schedule);}
+    if(d.records){G.records=d.records;lsSet(K.records,G.records);}
+    if(d.rituals){G.rituals=d.rituals;lsSet(K.rituals,G.rituals);}
+    setSyncStatus("✓ 已同步課表  "+new Date().toLocaleTimeString());
+    render();
+    return true;
+  }catch(e){
+    if(!silent) setSyncStatus("同步失敗："+e.message);
+    return false;
+  }
+}
+
 function setSyncStatus(msg){const el=document.getElementById("sync-status");if(el) el.textContent=msg;}
+
+// 載入按鈕：已登入用完整 Drive 載入，未登入用公開連結同步
+function handleRestoreClick(){
+  if(G.accessToken) driveRestore();
+  else fetchPublicBackup(false);
+}
 
 // ═══ MODALS ══════════════════════════════════════════════════════════════
 function openModal(html){document.getElementById("modal-box").innerHTML=html;document.getElementById("modal-overlay").classList.add("open");document.getElementById("modal-overlay").onclick=(e)=>{if(e.target===document.getElementById("modal-overlay"))closeModal();};}
@@ -1037,7 +1090,15 @@ setInterval(updateClock,1000);updateClock();
 // ═══ INIT ════════════════════════════════════════════════════════════════
 window.addEventListener("load",()=>{
   setTimeout(initGoogleAuth,800);
-  if(G.accessToken) setSyncStatus(`已登入 ${G.userEmail}`);
+  if(G.accessToken){
+    setSyncStatus(`已登入 ${G.userEmail}`);
+  } else {
+    // Xavier 的裝置：未登入時自動嘗試從公開連結同步課表
+    setSyncStatus("同步課表中…");
+    fetchPublicBackup(true).then(ok=>{
+      if(!ok) setSyncStatus("尚未連線課表，請聯絡家長備份");
+    });
+  }
 });
 // ── 一次性資料遷移 xv3 → xv4 ──────────────────────────────────────────
 function migrateFromV3(){
